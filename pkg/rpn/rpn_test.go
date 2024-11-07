@@ -1,18 +1,17 @@
 package rpn_test
 
 // Так как это другой пакет, нужно его импортировать
-import "github.com/AlexS25/rpn/pkg/rpn"
+
 /*
 ```
 Ожидаемый результат для функции `Calc` будем проверять в тесте `TestCalc`. Названия функций в тестах обычно состоят из слова `Test` и имени тестируемой функции.
 ```go
 */
-package rpn_test
 
 import (
-	"testing"
+  "testing"
 
-	rpn "github.com/aivanov/rpn/pkg"
+  rpn "github.com/AlexS25/rpn/pkg/rpn"
 )
 
 func TestCalc(t *testing.T) {
