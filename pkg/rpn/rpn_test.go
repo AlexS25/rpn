@@ -1,6 +1,7 @@
 package rpn_test
 
 // Так как это другой пакет, нужно его импортировать
+//import "github.com/aivanov/game/pkg/rpn"
 
 /*
 ```
