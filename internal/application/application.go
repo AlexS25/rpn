@@ -46,3 +46,8 @@ func (a *Application) Run() error {
 		}
 	}
 }
+
+func (a *Application) RunServer() {
+	log.Println("==> This run server!")
+
+}
