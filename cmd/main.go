@@ -8,7 +8,9 @@ import (
 )
 
 func usage() {
-	fmt.Print("Usage: cmd [arguments]\n\n",
+
+	fmt.Print(
+		"Usage: cmd [arguments]\n\n",
 		"Manage calc's list of trusted argumetns\n\n",
 		"  --help     - Show current help.\n",
 		"  --cmd      - Use command line interface.\n",
@@ -16,6 +18,7 @@ func usage() {
 		"Example of application launch:\n",
 		"./cmd --srv\n",
 	)
+
 }
 
 type modRun struct {
@@ -24,8 +27,8 @@ type modRun struct {
 }
 
 func (mr *modRun) checkArgs() {
-	if len(os.Args) > 1 {
 
+	if len(os.Args) > 1 {
 		for _, arg := range os.Args[1:] {
 			switch arg {
 			case "--help":
@@ -40,10 +43,10 @@ func (mr *modRun) checkArgs() {
 				os.Exit(1)
 			}
 		}
-
 	} else {
 		mr.isSrv = true
 	}
+
 }
 
 func main() {
@@ -52,9 +55,11 @@ func main() {
 	mr.checkArgs()
 
 	app := application.New()
+
 	if mr.isCmd {
 		app.Run()
 	} else if mr.isSrv {
 		app.RunServer()
 	}
+
 }

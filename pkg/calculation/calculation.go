@@ -1,4 +1,4 @@
-package rpn
+package calculation
 
 import (
 	"errors"
@@ -7,11 +7,6 @@ import (
 	"strings"
 
 	stack "github.com/AlexS25/rpn/pkg/collections/stack"
-)
-
-var (
-	// errEmptyStack     = errors.New("invalid operation, stack is empty")
-	errDivisionByZero = errors.New("division by zero is not allowed")
 )
 
 func IsNumber(val string) bool {
@@ -58,7 +53,9 @@ func ParseExpr(expr string) ([]string, error) {
 			case IsNumber(tmp) && IsNumber(lastVal):
 				lastVal += tmp
 			default:
-				return nil, errors.New("unknown value in expression:" + tmp)
+				return nil, errors.New(fmt.Sprintf("unknown value %q in expression: %q",
+					tmp, expr))
+				//return nil, errors.New(errUnknownVale.Error() + tmp)
 			}
 		}
 	}
@@ -101,7 +98,9 @@ func CheckSyntax(expression []string) (bool, error) {
 			if !stackValid.IsEmpty() {
 				_ = stackValid.Pop()
 			} else {
-				return false, errors.New("invalid expression: " + strings.Join(expression, ""))
+				return false, errors.New(errInvalidExpression.Error() +
+					"extra operator in expression: " +
+					strings.Join(expression, ""))
 			}
 		default:
 			if IsNumber(val) {
@@ -111,7 +110,8 @@ func CheckSyntax(expression []string) (bool, error) {
 	}
 
 	if stackValid.Size() != 1 {
-		return false, errors.New("invalid expression: " + strings.Join(expression, ""))
+		return false, errors.New(errInvalidExpression.Error() +
+			strings.Join(expression, ""))
 	}
 
 	return true, nil
@@ -193,7 +193,7 @@ func evaluate(postfixExpresion []string) (float64, error) {
 	return res, nil
 }
 
-func CalcNew(expression string) (float64, error) {
+func Calc(expression string) (float64, error) {
 
 	parsedVals, err := ParseExpr(expression)
 	if err != nil {
@@ -202,11 +202,17 @@ func CalcNew(expression string) (float64, error) {
 	// fmt.Println(parsedVals)
 
 	if res, err := CheckBrackets(parsedVals); !res {
-		return 0, err
+		if err != nil {
+			return 0, errors.New(errInvalidExpression.Error() + err.Error())
+		}
+		return 0, errors.New(errInvalidExpression.Error() + expression)
 	}
 
 	if res, err := CheckSyntax(parsedVals); !res {
-		return 0, err
+		if err != nil {
+			return 0, err
+		}
+		return 0, errors.New(errInvalidExpression.Error() + expression)
 	}
 
 	convertedVals := convertToPostfix(parsedVals)

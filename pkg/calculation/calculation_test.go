@@ -1,40 +1,40 @@
-package rpn_test
+package calculation_test
 
 import (
 	"reflect"
 	"strings"
 	"testing"
 
-	rpn "github.com/AlexS25/rpn/pkg/rpn"
+	calc "github.com/AlexS25/rpn/pkg/calculation"
 )
 
 func TestIsNumber(t *testing.T) {
 	val := "12.34"
-	got := rpn.IsNumber(val)
+	got := calc.IsNumber(val)
 	want := true
 	if got != want {
 		t.Errorf("IsNumber(%q) = %v, want %v", val, got, want)
 	}
 
 	val = "1234"
-	got = rpn.IsNumber(val)
+	got = calc.IsNumber(val)
 	want = true
 	if got != want {
 		t.Errorf("IsNumber(%q) = %v, want %v", val, got, want)
 	}
 
 	val = "a"
-	got = rpn.IsNumber(val)
+	got = calc.IsNumber(val)
 	want = false
 	if got != want {
 		t.Errorf("IsNumber(%q) = %v, want %v", val, got, want)
 	}
-
 }
 
 func TestParseExpr(t *testing.T) {
+
 	val := "2 + 1(3 - 8/4 * 1) + 5"
-	got, _ := rpn.ParseExpr(val)
+	got, _ := calc.ParseExpr(val)
 	want := []string{
 		"2",
 		"+",
@@ -57,7 +57,7 @@ func TestParseExpr(t *testing.T) {
 	}
 
 	val = val + "aa"
-	_, err := rpn.ParseExpr(val)
+	_, err := calc.ParseExpr(val)
 	if err == nil {
 		t.Fatalf("successfull case %q returns errors", val)
 	}
@@ -88,7 +88,7 @@ func TestCheckBrackets(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, _ := rpn.CheckBrackets(tc.values)
+			got, _ := calc.CheckBrackets(tc.values)
 			if got != tc.want {
 				t.Errorf("CheckBrackets(%q) = %t, but want %t", strings.Join(tc.values, ""), got, tc.want)
 			}
@@ -131,7 +131,7 @@ func TestCheckSyntax(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, _ := rpn.CheckSyntax(tc.values)
+			got, _ := calc.CheckSyntax(tc.values)
 			if got != tc.want {
 				t.Errorf("CheckSyntax(%q) = %t, but want %t", strings.Join(tc.values, ""), got, tc.want)
 			}
@@ -139,7 +139,7 @@ func TestCheckSyntax(t *testing.T) {
 	}
 }
 
-func TestCalcNew(t *testing.T) {
+func TestCalc(t *testing.T) {
 	testCasesSuccess := []struct {
 		name           string
 		expression     string
@@ -169,7 +169,7 @@ func TestCalcNew(t *testing.T) {
 
 	for _, testCase := range testCasesSuccess {
 		t.Run(testCase.name, func(t *testing.T) {
-			val, err := rpn.CalcNew(testCase.expression)
+			val, err := calc.Calc(testCase.expression)
 			if err != nil {
 				t.Fatalf("successful case %s returns error", testCase.expression)
 			}
@@ -204,7 +204,7 @@ func TestCalcNew(t *testing.T) {
 
 	for _, testCase := range testCasesFail {
 		t.Run(testCase.name, func(t *testing.T) {
-			val, err := rpn.CalcNew(testCase.expression)
+			val, err := calc.Calc(testCase.expression)
 			if err == nil {
 				t.Fatalf("expression %s is invalid but result  %f was obtained", testCase.expression, val)
 			}
