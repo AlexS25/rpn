@@ -51,7 +51,7 @@ go run ./cmd/main.go --help
 ```bash
 Usage: cmd [arguments]
 
-Manage calc's list of trusted argumetns
+Manage calc\'s list of trusted argumetns
 
   --help     - Show current help.
   --cmd      - Use command line interface.
@@ -302,5 +302,49 @@ curl --location 'localhost:8080/api/v1/calculate' \
 2024/12/22 22:38:05 [INFO] Star HTTP request: "/api/v1/calculate"
 2024/12/22 22:38:05 [ERROR] expression is required
 2024/12/22 22:38:05 [INFO] HTTP request: "/api/v1/calculate", method: "POST", duration: 105756
+```
+
+## Проверка кода возврата
+Помимо самого выражения, возвращается и код возврата. Для его вывода можно добавить ключ `-v` для утилиты `curl` перенаправить поток ошибок на поток вывода, и с помощью утилиты `grep` отфильтровать вывод.
+
+Пример возврата выражения с кодом `200`
+
+```bash
+curl -v --location 'localhost:8080/api/v1/calculate' \
+--header 'Content-Type: application/json' \
+--data '{
+  "expression": "(2+2)*2"
+}' 2>&1 | grep -E "expression|error|HTTP"
+```
+
+В выводе получим следующий ответ:
+
+```bash
+> POST /api/v1/calculate HTTP/1.1
+< HTTP/1.1 200 OK
+{"result":8}
+```
+
+Как видно, код возврата 200, и сам `result` тоже присутствует.
+
+Так-же можно проверить и ошибочное выражение
+
+```bash
+curl -v --location 'localhost:8080/api/v1/calculate' \
+--header 'Content-Type: application/json' \
+--data '{
+  "expression": "(2+2)*+2"
+}' 2>&1 | grep -E "result|error|HTTP"
+```
+
+В данном случае код возврата будет 422
+
+```bash
+> POST /api/v1/calculate HTTP/1.1
+< HTTP/1.1 422 Unprocessable Entity
+{
+  "error":"Expression is not valid",
+  "description":"invalid expression: extra operator in expression: (2+2)*+2"
+}
 ```
 
