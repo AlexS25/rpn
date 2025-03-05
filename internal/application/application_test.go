@@ -95,12 +95,28 @@ func TestCalcHandler(t *testing.T) {
 			expression: "2+2**2",
 		},
 		{
-			name:       "priority",
-			expression: "((2+2-*(2",
+			name:       "extra bracket 1",
+			expression: "(2+2*2",
+		},
+		{
+			name:       "extra bracket 2",
+			expression: "2+2)*2",
+		},
+		{
+			name:       "extra bracket 3",
+			expression: "2(+2*2",
+		},
+		{
+			name:       "extra bracket 4",
+			expression: "2)+2*2",
 		},
 		{
 			name:       "empty",
 			expression: "",
+		},
+		{
+		  name:			"division by zero",
+		  expression:	"1/0",
 		},
 	}
 
@@ -145,13 +161,3 @@ func TestCalcHandler(t *testing.T) {
 	}
 }
 
-func main() {
-	req := httptest.NewRequest("POST", "/api/v1/calculate", nil)
-	w := httptest.NewRecorder()
-	CalcHandler(w, req)
-	resp := w.Result()
-	if resp.StatusCode != http.StatusOK {
-
-	}
-
-}

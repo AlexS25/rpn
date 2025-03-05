@@ -184,22 +184,38 @@ func TestCalc(t *testing.T) {
 		expression  string
 		expectedErr error
 	}{
-		{
-			name:       "simple",
-			expression: "1+1*",
-		},
-		{
-			name:       "priority",
-			expression: "2+2**2",
-		},
-		{
-			name:       "priority",
-			expression: "((2+2-*(2",
-		},
-		{
-			name:       "empty",
-			expression: "",
-		},
+        {
+            name:       "simple",
+            expression: "1+1*",
+        },
+        {
+            name:       "priority",
+            expression: "2+2**2",
+        },
+        {
+            name:       "extra bracket 1",
+            expression: "(2+2-*2",
+        },
+        {
+            name:       "extra bracket 2",
+            expression: "2+2)-*2",
+        },
+        {
+            name:       "extra bracket 3",
+            expression: "2(+2-*2",
+        },
+        {
+            name:       "extra bracket 4",
+            expression: "2)+2-*2",
+        },
+        {
+            name:       "empty",
+            expression: "",
+        },
+        {
+          name:         "division by zero",
+          expression:   "1/0",
+        },
 	}
 
 	for _, testCase := range testCasesFail {
