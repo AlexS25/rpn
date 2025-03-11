@@ -160,8 +160,53 @@ func ConvertToPostfix(list []string) []string {
 	return postfixExpresion
 }
 
+type Config struct {
+	TimeAddition    int
+	TimeSubtraction int
+	TimeMultiply    int
+	TimeDivision    int
+}
+
+/*
+TIME_ADDITION_MS - время выполнения операции сложения в миллисекундах
+TIME_SUBTRACTION_MS - время выполнения операции вычитания в миллисекундах
+TIME_MULTIPLICATIONS_MS - время выполнения операции умножения в миллисекундах
+TIME_DIVISIONS_MS - время выполнения операции деления в миллисекундах
+*/
+
+func configFromEnv() *Config {
+	config := new(Config)
+
+	val := os.Getenv("TIME_ADDITION_MS")
+	config.TimeAddition, _ = strconv.Atoi(val)
+	if config.TimeAddition == 0 {
+		config.TimeAddition = int(time.Millisecond) * 500
+	}
+
+	val = os.Getenv("TIME_SUBTRACTION_MS")
+	config.TimeSubtraction, _ = strconv.Atoi(val)
+	if config.TimeSubtraction == 0 {
+		config.TimeSubtraction = int(time.Millisecond) * 500
+	}
+
+	val = os.Getenv("TIME_MULTIPLICATIONS_MS")
+	config.TimeMultiply, _ = strconv.Atoi(val)
+	if config.TimeMultiply == 0 {
+		config.TimeMultiply = int(time.Millisecond) * 500
+	}
+
+	val = os.Getenv("TIME_DIVISIONS_MS")
+	config.TimeDivision, _ = strconv.Atoi(val)
+	if config.TimeDivision == 0 {
+		config.TimeDivision = int(time.Millisecond) * 500
+	}
+
+	return config
+}
+
 func EvalSimpleExpr(arg1, arg2, operation string) (string, error) {
 	var res float64
+	// config := configFromEnv()
 
 	fmt.Printf("Arg1: %q, arg2: %q, operation: %q\n", arg1, arg2, operation)
 
@@ -179,46 +224,22 @@ func EvalSimpleExpr(arg1, arg2, operation string) (string, error) {
 		return "", fmt.Errorf("value %q does not apply to operation symbol", operation)
 	}
 
-	val := os.Getenv("TIME_ADDITION_MS")
-	TimeAddition, _ := strconv.Atoi(val)
-	if TimeAddition == 0 {
-		TimeAddition = 100
-	}
-
-	val = os.Getenv("TIME_SUBTRACTION_MS")
-	TimeSubtraction, _ := strconv.Atoi(val)
-	if TimeSubtraction == 0 {
-		TimeSubtraction = 100
-	}
-
-	val = os.Getenv("TIME_MULTIPLICATIONS_MS")
-	TimeMultiply, _ := strconv.Atoi(val)
-	if TimeMultiply == 0 {
-		TimeMultiply = 100
-	}
-
-	val = os.Getenv("TIME_DIVISIONS_MS")
-	TimeDivision, _ := strconv.Atoi(val)
-	if TimeDivision == 0 {
-		TimeDivision = 100
-	}
-
 	switch operation {
 	case "+":
 		res = left + right
-		time.Sleep(time.Duration(TimeAddition) * time.Microsecond)
+		// time.Sleep(time.Duration(config.TimeAddition) * time.Millisecond)
 	case "-":
 		res = left - right
-		time.Sleep(time.Duration(TimeSubtraction) * time.Microsecond)
+		// time.Sleep(time.Duration(config.TimeSubtraction) * time.Millisecond)
 	case "*":
 		res = left * right
-		time.Sleep(time.Duration(TimeMultiply) * time.Microsecond)
+		// time.Sleep(time.Duration(config.TimeMultiply) * time.Millisecond)
 	case "/":
 		if right == 0 {
 			return "", errDivisionByZero
 		}
 		res = left / right
-		time.Sleep(time.Duration(TimeDivision) * time.Microsecond)
+		// time.Sleep(time.Duration(config.TimeDivision) * time.Millisecond)
 	}
 
 	return fmt.Sprintf("%f", res), nil

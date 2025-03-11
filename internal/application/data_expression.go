@@ -134,10 +134,14 @@ func (se *safeExpression) getExprForTask(id int) ([]string, error) {
 func (se *safeExpression) pushValFromTask(id int, val string) error {
 	if de, ok := se.Get(id); ok {
 		if de.state != 1 { // Проверяем, что данны элемент был помечен, как занятый
-			return fmt.Errorf("Expression with id %d, does not wait data.", id)
+			return fmt.Errorf("expression with id %d, does not wait data", id)
 		}
 		de.stackExpr.Push(val)
-		de.state = 0 // Освобождаем наш элемент
+		if len(de.postfixExpr) == 0 {
+			de.state = 2
+		} else {
+			de.state = 0 // Освобождаем наш элемент
+		}
 
 		se.mtx.Lock()
 		se.de[id] = de
@@ -145,7 +149,7 @@ func (se *safeExpression) pushValFromTask(id int, val string) error {
 
 		return nil
 	} else {
-		return fmt.Errorf("Expression with id %d not found.", id)
+		return fmt.Errorf("expression with id %d not found", id)
 	}
 }
 

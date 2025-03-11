@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -22,7 +23,7 @@ var DisableLogging bool = false
 
 type Config struct {
 	PortNum         string
-	CompPower       string
+	CompPower       int
 	TimeAddition    int
 	TimeSubtraction int
 	TimeMultiply    int
@@ -44,33 +45,34 @@ func ConfigFromEnv() *Config {
 		config.PortNum = "8080"
 	}
 
-	config.CompPower = os.Getenv("COMPUTING_POWER")
-	if config.CompPower == "" {
-		config.CompPower = "4"
+	val := os.Getenv("COMPUTING_POWER")
+	config.CompPower, _ = strconv.Atoi(val)
+	if config.CompPower == 0 {
+		config.CompPower = 3
 	}
 
-	val := os.Getenv("TIME_ADDITION_MS")
+	val = os.Getenv("TIME_ADDITION_MS")
 	config.TimeAddition, _ = strconv.Atoi(val)
 	if config.TimeAddition == 0 {
-		config.TimeAddition = int(time.Millisecond) * 100
+		config.TimeAddition = 5000
 	}
 
 	val = os.Getenv("TIME_SUBTRACTION_MS")
 	config.TimeSubtraction, _ = strconv.Atoi(val)
 	if config.TimeSubtraction == 0 {
-		config.TimeSubtraction = int(time.Millisecond) * 100
+		config.TimeSubtraction = 7000
 	}
 
 	val = os.Getenv("TIME_MULTIPLICATIONS_MS")
 	config.TimeMultiply, _ = strconv.Atoi(val)
 	if config.TimeMultiply == 0 {
-		config.TimeMultiply = int(time.Millisecond) * 100
+		config.TimeMultiply = 9000
 	}
 
 	val = os.Getenv("TIME_DIVISIONS_MS")
 	config.TimeDivision, _ = strconv.Atoi(val)
 	if config.TimeDivision == 0 {
-		config.TimeDivision = int(time.Millisecond) * 100
+		config.TimeDivision = 1100
 	}
 
 	return config
@@ -320,7 +322,7 @@ func SendExprStateHandler(w http.ResponseWriter, r *http.Request) {
 		idS := segments[3]
 		idS = idS[1:]
 		// fmt.Fprintf(w, "==> ID is: %q\n", idS)
-		logging(fmt.Sprintf("==> ID is: %q\n", idS), os.Stdout)
+		logging(fmt.Sprintf("==> ID is: %q", idS), os.Stdout)
 
 		id, err := strconv.Atoi(idS)
 		if err == nil {
@@ -368,7 +370,7 @@ func getExprById(id int) (Expression, bool) {
 	if de, ok := SafeExpr.Get(id); ok {
 		expr.Id = id
 
-		fmt.Println("==> Cur de:", de)
+		// fmt.Println("==> Cur de:", de)
 
 		// 0-free, 1-busy, 2-solved, 5-selected
 		var state string
@@ -446,14 +448,16 @@ func doTaskHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	defer r.Body.Close()
 
+	logging(fmt.Sprintf("==> Cur method: %v", r.Method), os.Stdout)
+
 	// Для ошибок в json
 	respError := new(ResponseError)
 
-	taskResult := new(TaskResult)
-	err := json.NewDecoder(r.Body).Decode(&taskResult)
+	// taskResult := new(TaskResult)
+	// err := json.NewDecoder(r.Body).Decode(&taskResult)
 
-	// if r.Method == http.MethodGet {
-	if err != nil {
+	if r.Method == http.MethodGet {
+		// if err != nil {
 		// тут происзодит обработка запроса новой таски
 		logging("running `doTask` to send the data", os.Stdout)
 		task := new(Task)
@@ -502,28 +506,27 @@ func doTaskHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// } else if r.Method == http.MethodPost {
-	} else {
+	} else if r.Method == http.MethodPost {
 		// тут получаем обратно обработанные данные
 		logging("running `doTask` to get the data", os.Stdout)
 
-		// taskResult := new(TaskResult)
-		// err := json.NewDecoder(r.Body).Decode(&taskResult)
+		taskResult := new(TaskResult)
+		err := json.NewDecoder(r.Body).Decode(&taskResult)
 
-		// // если не получилось десериализовать данные
-		// if err != nil {
-		// 	respError.Error = "Error geting task execution"
-		// 	respError.Description = err.Error()
-		// 	jsonError, _ := json.Marshal(respError)
+		// если не получилось десериализовать данные
+		if err != nil {
+			respError.Error = "Error geting task execution"
+			respError.Description = err.Error()
+			jsonError, _ := json.Marshal(respError)
 
-		// 	w.WriteHeader(http.StatusUnprocessableEntity)
-		// 	w.Write(jsonError)
-		// 	logging(respError.Error+" "+respError.Description, os.Stderr)
-		// 	return
-		// }
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			w.Write(jsonError)
+			logging(respError.Error+" "+respError.Description, os.Stderr)
+			return
+		}
 
 		if err := SafeExpr.pushValFromTask(taskResult.Id, fmt.Sprintf("%f", taskResult.Result)); err != nil {
-			// Елси не нашли данные для записи
+			// Если не нашли данные для записи
 			respError.Error = "Error writing result"
 			respError.Description = err.Error()
 			jsonError, _ := json.Marshal(respError)
@@ -531,10 +534,11 @@ func doTaskHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNotFound)
 			w.Write(jsonError)
 			return
+		} else {
+			fmt.Print("==> Cur value: ")
+			fmt.Println(SafeExpr.Get(taskResult.Id))
 		}
-
 	}
-
 }
 
 func loggingCalc(next http.Handler) http.HandlerFunc {
@@ -680,7 +684,7 @@ func (task *Task) getTaskToRun(url string) error {
 	// Создаем POST запрос для отправки результата
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return fmt.Errorf("Error creating GET request.\n%v", err)
+		return fmt.Errorf("error creating GET request\n%v", err)
 	}
 	//Задаем заголовок, что хотим получить json тело
 	req.Header.Set("Accept", "application/json")
@@ -688,25 +692,25 @@ func (task *Task) getTaskToRun(url string) error {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("Error running GET request.\n%v", err)
+		return fmt.Errorf("error running GET request\n%v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, err := io.ReadAll(resp.Body)
-		return fmt.Errorf("Request failed: %s\n Response: %s\n %v", resp.Status, body, err)
+		return fmt.Errorf("request failed: %s\n Response: %s\n %v", resp.Status, body, err)
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("Failed read data from response.\n %v", err)
+		return fmt.Errorf("failed read data from response\n %v", err)
 	}
 	// jsonTask := Task{}
 	err = json.Unmarshal(body, &task)
 	if err != nil {
-		return fmt.Errorf("Failed json unmarshal.\n %v", err)
+		return fmt.Errorf("failed json unmarshal.\n %v", err)
 	}
-	logging(fmt.Sprintf("Current json:\n%v", task), os.Stdout)
+	logging(fmt.Sprintf("Current request:\n%v", string(body)), os.Stdout)
 	return nil
 }
 
@@ -721,13 +725,14 @@ func (task *Task) sendTaskResult(url string) error {
 	taskResult := new(TaskResult)
 	taskResult.Id = task.Id
 	taskResult.Result = val
-	logging(fmt.Sprintf("Current response: %v", taskResult), os.Stdout)
 
 	reqTaskRes, _ := json.Marshal(taskResult)
+
+	logging(fmt.Sprintf("Current response: %v", string(reqTaskRes)), os.Stdout)
 	// Создаем POST запрос для отправки ответа
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(reqTaskRes))
 	if err != nil {
-		return fmt.Errorf("Error creating POST request.\n%v", err)
+		return fmt.Errorf("error creating POST request.\n%v", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -735,7 +740,7 @@ func (task *Task) sendTaskResult(url string) error {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("Error running GET request.\n%v", err)
+		return fmt.Errorf("error running GET request.\n%v", err)
 	}
 	defer resp.Body.Close()
 
@@ -765,25 +770,77 @@ func (a *Application) RunWorker() {
 		return
 	}
 	portS := strconv.Itoa(port)
-	// compPower := fmt.Sprintf("%s", a.config.CompPower)
+	compPower := a.config.CompPower
 
 	logging("==> Running `Worker` on port number: "+portS, os.Stdout)
 
-	url := fmt.Sprintf("http://localhost:%v/internal/task", port)
+	url := fmt.Sprintf("http://localhost:%v/internal/task/", port)
 
-	func(string) {
+	// compPower = 1
+	// ch := make(chan Task, compPower)
+
+	newData := true
+	ch := make(chan struct{}, compPower)
+	for {
+
 		task := Task{}
+
+		logging("==> Run getTask", os.Stdout)
 		err := task.getTaskToRun(url)
 		if err != nil {
-			logging(err.Error(), os.Stderr)
-			return
+			if newData {
+				// Если первая ошибка - выводим
+				logging(err.Error(), os.Stderr)
+				newData = false
+			} else {
+				//  Последующие пропускам, чтобы не спамить
+				time.Sleep(2 * time.Second)
+			}
+			// return
+			continue
 		}
 
-		err = task.sendTaskResult(url)
-		if err != nil {
-			logging(err.Error(), os.Stderr)
-			return
-		}
-	}(url)
+		ch <- struct{}{}
 
+		go func(task Task) {
+			gorNum := runtime.NumGoroutine()
+			logging(fmt.Sprintf("==> Star goroutine num: %d", gorNum), os.Stdout)
+			startTime := time.Now()
+
+			defer func() {
+				logging(fmt.Sprintf("==> Stop goroutine num: %d, duration: %d", gorNum, time.Since(startTime)), os.Stdout)
+				<-ch
+			}()
+
+			t := a.getTimeSleep(task)
+			fmt.Println("t =", t)
+			<-time.After(t)
+			fmt.Println("after t")
+
+			logging("==> Run sendTask", os.Stdout)
+			err = task.sendTaskResult(url)
+			if err != nil {
+				logging(err.Error(), os.Stderr)
+				return
+			}
+
+		}(task)
+
+		time.Sleep(500 * time.Millisecond)
+	}
+}
+
+func (a *Application) getTimeSleep(task Task) time.Duration {
+	var res time.Duration
+	switch task.Operation {
+	case "+":
+		res = time.Duration(a.config.TimeAddition) * time.Millisecond
+	case "-":
+		res = time.Duration(a.config.TimeSubtraction) * time.Millisecond
+	case "*":
+		res = time.Duration(a.config.TimeMultiply) * time.Millisecond
+	case "/":
+		res = time.Duration(a.config.TimeDivision) * time.Millisecond
+	}
+	return res
 }
