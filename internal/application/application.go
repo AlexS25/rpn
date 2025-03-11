@@ -54,25 +54,25 @@ func ConfigFromEnv() *Config {
 	val = os.Getenv("TIME_ADDITION_MS")
 	config.TimeAddition, _ = strconv.Atoi(val)
 	if config.TimeAddition == 0 {
-		config.TimeAddition = 5000
+		config.TimeAddition = 500
 	}
 
 	val = os.Getenv("TIME_SUBTRACTION_MS")
 	config.TimeSubtraction, _ = strconv.Atoi(val)
 	if config.TimeSubtraction == 0 {
-		config.TimeSubtraction = 7000
+		config.TimeSubtraction = 500
 	}
 
 	val = os.Getenv("TIME_MULTIPLICATIONS_MS")
 	config.TimeMultiply, _ = strconv.Atoi(val)
 	if config.TimeMultiply == 0 {
-		config.TimeMultiply = 9000
+		config.TimeMultiply = 500
 	}
 
 	val = os.Getenv("TIME_DIVISIONS_MS")
 	config.TimeDivision, _ = strconv.Atoi(val)
 	if config.TimeDivision == 0 {
-		config.TimeDivision = 1100
+		config.TimeDivision = 500
 	}
 
 	return config
@@ -258,8 +258,12 @@ func AddExprHandler(w http.ResponseWriter, r *http.Request) {
 		logging(err.Error(), os.Stderr)
 	} else {
 		response := new(ResponseId)
+
 		response.Id = id
-		json.NewEncoder(w).Encode(response)
+		jsonResp, _ := json.Marshal(response)
+		// json.NewEncoder(w).Encode(response)
+		w.WriteHeader(http.StatusCreated)
+		w.Write(jsonResp)
 
 		mess := fmt.Sprintf("id: %v", id)
 		//fmt.Fprint(w, mess)

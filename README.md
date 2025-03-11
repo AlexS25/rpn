@@ -363,3 +363,389 @@ curl -v --location 'localhost:8080/api/v1/calculate' \
 git clone https://github.com/AlexS25/rpn.git
 ```
 
+После клонирования проекта следует перейти в директорию с проектором и проводить работу из нее
+```bash
+cd rpn
+```
+
+### Запуск оркестратора
+
+Запускаем оркестартор:
+
+```bash
+go run -race cmd/service/orchestrator/main.go
+```
+
+После запуска увидим, что оркестратор запущен
+
+```bash
+...
+[INFO] ==> Running `Orchestrator` on port :8080
+...
+```
+
+При попытке запустить вторую копию увидим сообщение, что порт уже используется
+
+```bash
+...
+[INFO] ==> Running `Orchestrator` on port :8080
+listen tcp :8080: bind: address already in use
+...
+```
+
+Если требуется запустить вторую копию приложения, то следует указать порт, на котором следует запустить приложение:
+```bash
+# Можно задать переменну окружения перед самой командой
+PORT=8081 go run -race cmd/service/orchestrator/main.go
+
+# Или Экспортируем переменную в окружение переменных
+export PORT=8082
+```
+
+### Добавление вычисления арифметического выражения
+
+Для добавления вырежния можно воспользоваться утилитой `curl`. Подключаться к серверу для добавления задания будем по порту по умолчанию - *8080*, если сервер был запущен на другом порту, то следует его изменить.
+
+```bash
+curl --location 'localhost:8080/api/v1/calculate' \
+--header 'Content-Type: application/json' \
+--data '{
+  "expression": "2+2"
+}'
+
+curl --location 'localhost:8080/api/v1/calculate' \
+--header 'Content-Type: application/json' \
+--data '{
+  "expression": "2-2"
+}'
+
+curl --location 'localhost:8080/api/v1/calculate' \
+--header 'Content-Type: application/json' \
+--data '{
+  "expression": "1+2*3/(4-3)"
+}'
+
+curl --location 'localhost:8080/api/v1/calculate' \
+--header 'Content-Type: application/json' \
+--data '{
+  "expression": "5 -4 + 3 + 2 *1"
+}'
+
+curl --location 'localhost:8080/api/v1/calculate' \
+--header 'Content-Type: application/json' \
+--data '{
+  "expression": "55/11*2"
+}'
+```
+
+После добавления задания, мы получим `id` выражения, чтобы в дальнейшем можно было его отследить
+
+```bash
+...
+{"id":1}
+{"id":2}
+{"id":3}
+{"id":4}
+{"id":5}
+...
+```
+
+Если требуется посмотреть код ответа, то можно попробовать добавить следующим образом
+
+```bash
+curl -v --location 'localhost:8080/api/v1/calculate' \
+--header 'Content-Type: application/json' \
+--data '{
+  "expression": "(2+2)*2"
+}' 2>&1 | grep -E "expression|error|HTTP"
+```
+
+В ответ получим информацию с кодом возврата **201**:
+
+```bash
+> POST /api/v1/calculate HTTP/1.1
+< HTTP/1.1 201 Created
+```
+
+При попытке отправить некорректное выражение (например лишняя скобка) 
+
+```bash
+curl -v --location 'localhost:8080/api/v1/calculate' \
+--header 'Content-Type: application/json' \
+--data '{
+  "expression": "(2+2)*2)"
+}' 2>&1 | grep -E "expression|error|HTTP"
+```
+
+Увидим следующую картину, где код возврата будет уже **422**, и дополнительно получим информацию по ошибке
+
+```bash
+> POST /api/v1/calculate HTTP/1.1
+< HTTP/1.1 422 Unprocessable Entity
+{"error":"Expression is not valid","description":"invalid expression: not found open bracket in expression: (2+2)*2)"}
+```
+
+### Получение списка выражений 
+
+Для получения списка выражений, необходимо отправить `GET` запрос на оркестратор следующим образом
+
+```bash
+curl --location 'localhost:8080/api/v1/expressions'
+```
+
+В результате чего получим список отправленных выражений
+
+```bash
+{"expressions":
+  [
+   {"id":1,"status":"expression available","result":0}
+   ,{"id":2,"status":"expression available","result":0}
+   ,{"id":3,"status":"expression available","result":0}
+   ,{"id":4,"status":"expression available","result":0}
+   ,{"id":5,"status":"expression available","result":0}
+   ,{"id":6,"status":"expression available","result":0}
+  ]
+}
+```
+
+Как видим, добавлены только успешные выражения
+
+Если требуется получить информацию по конкретному выражения, то следует выполнить следующий запрос, где после `:` идет `id` выражения
+
+```bash
+curl --location 'localhost:8080/api/v1/expressions/:1'
+```
+
+Видим состояние нашего выражения
+
+```bash
+{"id":1,"status":"expression available","result":0}
+```
+
+Можно попробовать получить не существующее выражение
+
+```bash
+curl -v --location  'localhost:8080/api/v1/expressions/:111' 2>&1 | grep -E "expression|error|HTTP"
+```
+
+На выходе получим сообщение об ошибке и код возврата **404**
+
+```bash
+...
+> GET /api/v1/expressions/:111 HTTP/1.1
+< HTTP/1.1 404 Not Found
+Not found expression by id "111".
+...
+```
+
+### Запуск агента (worker)
+
+Для запуска агента необходимо открыть терминал и перейти в директорию проекта.
+
+Далее выполняем команду 
+
+```bash
+go run cmd/service/worker/main.go
+```
+
+После чего запустится агент, который будет брать задания с оркестратора для выполнения. Агентов можно запускать несколько штук, для этого придется открыть новый терминал и повторно запустить команду выше.
+
+Посредством переменных окружения, агенту можно задать количество потоков обрабоки выражения `COMPUTING_POWER`, а так-же время выполнения для каждого выражения
+
+```bash
+# Количество потоков обработки выражений
+export COMPUTING_POWER=2
+# время выполнения операции сложения в миллисекундах
+export TIME_ADDITION_MS=1000
+# время выполнения операции вычитания в миллисекундах
+export TIME_SUBTRACTION_MS=2000
+# время выполнения операции умножения в миллисекундах
+export TIME_MULTIPLICATIONS_MS=3000
+# время выполнения операции деления в миллисекундах 
+export TIME_DIVISIONS_MS=4000
+
+go run cmd/service/worker/main.go
+```
+
+После того, как непрерывно будет идти сообшение
+
+```bash
+...
+[INFO] ==> Run getTask
+[INFO] ==> Run getTask
+...
+```
+
+Можно проверять состояние наших выражений
+```bash
+curl --location 'localhost:8080/api/v1/expressions'
+...
+{"expressions":
+  [
+    {"id":6,"status":"expression calculated","result":8}
+    ,{"id":1,"status":"expression calculated","result":4}
+    ,{"id":2,"status":"expression calculated","result":0}
+    ,{"id":3,"status":"expression calculated","result":7}
+    ,{"id":4,"status":"expression calculated","result":6}
+    ,{"id":5,"status":"expression calculated","result":10}
+  ]
+}
+...
+```
+
+Так-же по логам можно проверить время выполнения операций, которое мы задали через переменные окружения
+
+```bash
+...
+[INFO] ==> Run sendTask
+Arg1: "1", arg2: "6.000000", operation: "+"
+[INFO] Current response: {"id":3,"result":7}
+[INFO] ==> Stop goroutine num: 7, duration: 1002314316
+...
+[INFO] ==> Run sendTask
+Arg1: "4.000000", arg2: "2", operation: "*"
+[INFO] Current response: {"id":6,"result":8}
+[INFO] ==> Stop goroutine num: 7, duration: 3002548978
+...
+```
+
+
+### Эмулируем работу агента
+
+Для проверки корректности работы воркера, попробуем проделать операцию вычисления вручную
+Предварительно не забываем отключить и оркестратор и агент
+
+Запускам оркестратора
+
+```bash
+go run -race cmd/service/orchestrator/main.go
+```
+
+Пытаемся получить задания для обработки
+
+```bash
+curl --location 'localhost:8080/internal/task'
+```
+
+Получаем сообщение об ошибке
+
+```bash
+{"error":"Not found tasks","description":"Not found tasks"}
+```
+G
+Заоднем провери код ошибки
+
+```bash
+curl -v --location 'localhost:8080/internal/task/' 2>&1 | grep -E "expression|error|HTTP"
+```
+
+Получим код **404**
+
+```bash
+> GET /internal/task/ HTTP/1.1
+< HTTP/1.1 404 Not Found
+{"error":"Not found tasks","description":"Not found tasks"}
+```
+
+Добавляем выражение
+
+```bash
+curl --location 'localhost:8080/api/v1/calculate/' \
+--header 'Content-Type: application/json' \
+--data '{
+  "expression": "(2+2)*2"
+}'
+```
+
+Пытаемся повторно получить задания для обработки
+
+```bash
+curl --location 'localhost:8080/internal/task/'
+```
+
+Получили ответ
+
+```bash
+{"id":1,"arg1":"2","arg2":"2","operation":"+","operation_time":"2025-03-12 02:08:07.371"}
+```
+
+Пытаемся повторно получить выражени для рассчета
+
+```bash
+curl -v --location 'localhost:8080/internal/task/' 2>&1 | grep -E "expression|error|HTTP"
+## Получили ошибку
+> GET /internal/task/ HTTP/1.1
+< HTTP/1.1 404 Not Found
+{"error":"Not found tasks","description":"Not found tasks"}
+```
+
+Проверяем состояние заданий
+
+```bash
+curl --location 'localhost:8080/api/v1/expressions/'
+```
+
+Получаем ответ, что задание вычисляется
+
+```bash
+{"expressions":[{"id":1,"status":"expression evaluated","result":0}]}
+```
+
+Решаем выражение от отправляем результат
+
+```bash
+curl --location 'localhost:8080/internal/task/' \
+--header 'Content-Type: application/json' \
+--data '{
+  "id": 1,
+  "result": 4
+}'
+```
+
+Смотрим состояние
+
+```bash
+curl --location 'localhost:8080/api/v1/expressions/'
+```
+
+Видим, что наже выраженин опять доступно
+
+```bash
+{"expressions":[{"id":1,"status":"expression available","result":0}]}j
+```
+
+Опять получаем задание для обработки
+
+```bash
+curl --location 'localhost:8080/internal/task/'
+```
+
+Видим ответ
+
+```bash
+{"id":1,"arg1":"4.000000","arg2":"2","operation":"*","operation_time":"2025-03-12 02:18:09.119"}
+```
+
+Решаем и отправляем решение
+
+
+```bash
+curl --location 'localhost:8080/internal/task/' \
+--header 'Content-Type: application/json' \
+--data '{
+  "id": 1,
+  "result": 8
+}'
+```
+
+Смотрим состояние
+
+```bash
+curl --location 'localhost:8080/api/v1/expressions/'
+```
+
+Видим, что у нас достсупно только одно выражение и оно решено
+
+```bash
+{"expressions":[{"id":1,"status":"expression calculated","result":8}]}
+```
